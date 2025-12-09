@@ -86,6 +86,28 @@ make paths
 make ping
 ```
 
+## 📸 Screenshots
+
+### GUI Visualizer (`make visualizer`)
+
+| Network Topology | AS Details | Path Discovery |
+|:---:|:---:|:---:|
+| ![Topology](assets/visualizer-topology.png) | ![AS Details](assets/visualizer-as-details.png) | ![Paths](assets/visualizer-paths.png) |
+
+| Container Status | Ping Test |
+|:---:|:---:|
+| ![Status](assets/visualizer-status.png) | ![Ping](assets/visualizer-ping.png) |
+
+### Terminal Commands
+
+| Setup & Start | Path Discovery |
+|:---:|:---:|
+| ![Setup](assets/terminal-setup.png) | ![Paths](assets/terminal-paths.png) |
+
+| Container Status | SCION Ping |
+|:---:|:---:|
+| ![Status](assets/terminal-status.png) | ![Ping](assets/terminal-ping.png) |
+
 ## 📖 SCION Fundamentals
 
 This project teaches these core SCION concepts:
