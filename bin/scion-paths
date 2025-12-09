@@ -1,0 +1,67 @@
+#!/bin/bash
+# scion-paths - Discover available SCION paths between two endpoints
+# Usage: ./scion-paths [source_as] [dest_as]
+
+set -e
+
+# Default: from AS111 to AS211
+SOURCE_AS="${1:-1-ff00:0:111}"
+DEST_AS="${2:-2-ff00:0:211}"
+HOST_CONTAINER="scion-as111"
+DAEMON_ADDR="172.20.0.22:30255"
+
+# Map source AS to its container
+case "$SOURCE_AS" in
+    "1-ff00:0:111"|"111")
+        HOST_CONTAINER="scion-as111"
+        DAEMON_ADDR="172.20.0.22:30255"
+        SOURCE_AS="1-ff00:0:111"
+        ;;
+    "2-ff00:0:211"|"211")
+        HOST_CONTAINER="scion-as211"
+        DAEMON_ADDR="172.20.0.42:30255"
+        SOURCE_AS="2-ff00:0:211"
+        ;;
+    *)
+        echo "❌ Unknown source AS: $SOURCE_AS"
+        echo "   Valid options: 111, 211"
+        exit 1
+        ;;
+esac
+
+# Normalize destination
+case "$DEST_AS" in
+    "111") DEST_AS="1-ff00:0:111" ;;
+    "211") DEST_AS="2-ff00:0:211" ;;
+    "110") DEST_AS="1-ff00:0:110" ;;
+    "210") DEST_AS="2-ff00:0:210" ;;
+esac
+
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║           SCION Path Discovery                               ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "  Source:      $SOURCE_AS"
+echo "  Destination: $DEST_AS"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Execute scion showpaths command in the container
+docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    scion showpaths "$DEST_AS" --extended 2>/dev/null || {
+    echo ""
+    echo "⚠️  Note: If paths are not showing, the network may still be converging."
+    echo "   Wait a few seconds and try again."
+    echo ""
+    echo "   You can also check path registration with:"
+    echo "   docker exec $HOST_CONTAINER scion showpaths $DEST_AS --no-probe"
+}
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "💡 Path Notation:"
+echo "   Each path shows the AS hops from source to destination."
+echo "   Interfaces are shown as AS#interface (e.g., 1-ff00:0:110#1)"
+echo "   The path is encoded in the packet header (PCFS - Packet-Carried Forwarding State)"

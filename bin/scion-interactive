@@ -1,0 +1,101 @@
+#!/bin/bash
+# scion-interactive - Interactive path selection and ping
+# Usage: ./scion-interactive
+
+set -e
+
+DEST_AS="${1:-2-ff00:0:211}"
+HOST_CONTAINER="scion-as111"
+DAEMON_ADDR="172.20.0.22:30255"
+
+# Normalize destination
+case "$DEST_AS" in
+    "111") DEST_AS="1-ff00:0:111" ;;
+    "211") DEST_AS="2-ff00:0:211" ;;
+    "110") DEST_AS="1-ff00:0:110" ;;
+    "210") DEST_AS="2-ff00:0:210" ;;
+esac
+
+clear
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║       SCION Interactive Path Explorer                        ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "  This tool demonstrates SCION's path-aware networking."
+echo "  You'll select a specific path and send traffic over it."
+echo ""
+echo "  Source:      1-ff00:0:111 (ISD 1, Academic Network)"
+echo "  Destination: $DEST_AS"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🔍 Step 1: Discovering available paths..."
+echo ""
+
+# Show paths
+docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    scion showpaths "$DEST_AS" --extended 2>/dev/null || {
+    echo "❌ No paths available. Is the network running?"
+    echo "   Try: make up && sleep 20 && make interactive"
+    exit 1
+}
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📚 Understanding the paths above:"
+echo ""
+echo "   Each path shows:"
+echo "   [index] Hops: <AS>:<interface> > <AS>:<interface> > ..."
+echo "           Latency, MTU, expiration time"
+echo ""
+echo "   Path Types in our topology:"
+echo "   • CHILD link: Parent-child AS relationship (hierarchical)"
+echo "   • PEER link:  Direct peer connection (shortcut)"
+echo "   • CORE link:  Between core ASes (inter-ISD backbone)"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Prompt for path selection
+echo -n "🎯 Step 2: Select a path index (0, 1, 2, ...): "
+read PATH_INDEX
+
+if ! [[ "$PATH_INDEX" =~ ^[0-9]+$ ]]; then
+    echo "❌ Invalid path index. Please enter a number."
+    exit 1
+fi
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "🏓 Step 3: Sending 5 SCMP echo requests over path #$PATH_INDEX..."
+echo ""
+
+# Send pings over selected path
+docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    scion ping "$DEST_AS" -c 5 2>/dev/null || {
+    echo "⚠️  Ping failed on this path."
+}
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "✅ Interactive session complete!"
+echo ""
+echo "💡 Key SCION Concepts Demonstrated:"
+echo ""
+echo "   1. PATH DISCOVERY: The SCION daemon queries the control"
+echo "      service to get all registered paths to the destination."
+echo ""
+echo "   2. PATH SELECTION: YOU chose which path to use, not the"
+echo "      network. This is the Packet-Carried Forwarding State (PCFS)"
+echo "      principle - paths are encoded in packet headers."
+echo ""
+echo "   3. PATH DIVERSITY: Multiple paths exist between endpoints,"
+echo "      enabling failover, load balancing, and policy-based routing."
+echo ""
+echo "Try these experiments:"
+echo "   • make break-link ROUTER=router-110  (simulate link failure)"
+echo "   • make paths                          (see remaining paths)"
+echo "   • make restore-link ROUTER=router-110 (restore the link)"

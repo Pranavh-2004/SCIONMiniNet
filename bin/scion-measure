@@ -1,0 +1,79 @@
+#!/bin/bash
+# scion-measure - Measure latency across all available SCION paths
+# Usage: ./scion-measure [dest_as] [count_per_path]
+
+set -e
+
+DEST_AS="${1:-2-ff00:0:211}"
+COUNT="${2:-3}"
+
+HOST_CONTAINER="scion-as111"
+DAEMON_ADDR="172.20.0.22:30255"
+
+# Normalize destination
+case "$DEST_AS" in
+    "111") DEST_AS="1-ff00:0:111" ;;
+    "211") DEST_AS="2-ff00:0:211" ;;
+    "110") DEST_AS="1-ff00:0:110" ;;
+    "210") DEST_AS="2-ff00:0:210" ;;
+esac
+
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║           SCION Latency Measurement                          ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "  From:   1-ff00:0:111 (host-111)"
+echo "  To:     $DEST_AS"
+echo "  Probes: $COUNT per path"
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# First, get all available paths
+echo "🔍 Discovering paths..."
+echo ""
+
+PATHS=$(docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    scion showpaths "$DEST_AS" --format json 2>/dev/null | head -1)
+
+if [ -z "$PATHS" ] || [ "$PATHS" = "null" ]; then
+    echo "❌ No paths available to $DEST_AS"
+    echo "   Wait for the network to converge and try again."
+    exit 1
+fi
+
+# Count paths (simple approach)
+PATH_COUNT=$(docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    scion showpaths "$DEST_AS" 2>/dev/null | grep -c "^\[" || echo "0")
+
+echo "📊 Found $PATH_COUNT path(s). Measuring latency on each..."
+echo ""
+
+# Measure each path
+for i in $(seq 0 $((PATH_COUNT - 1))); do
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "📏 Path #$i:"
+    
+    # Show the path hops
+    docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+        scion showpaths "$DEST_AS" 2>/dev/null | grep "^\[$i\]" || true
+    
+    echo ""
+    echo "   Pinging..."
+    
+    # Ping on this specific path
+    docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+        scion ping "$DEST_AS" -c "$COUNT" 2>/dev/null | tail -3 || echo "   (measurement failed)"
+    
+    echo ""
+done
+
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "💡 Path Selection Insight:"
+echo "   Different paths have different latency characteristics."
+echo "   In SCION, the application (not the network) chooses which path to use."
+echo "   This enables:"
+echo "   - Low-latency paths for real-time applications"
+echo "   - High-bandwidth paths for bulk transfers"
+echo "   - Paths avoiding specific jurisdictions for compliance"

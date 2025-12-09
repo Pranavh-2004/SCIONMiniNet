@@ -1,0 +1,60 @@
+#!/bin/bash
+# scion-ping - Send SCMP echo requests over SCION network
+# Usage: ./scion-ping [dest_as] [count] [path_index]
+
+set -e
+
+DEST_AS="${1:-2-ff00:0:211}"
+COUNT="${2:-5}"
+PATH_INDEX="${3:-}"  # Optional: specific path to use
+
+HOST_CONTAINER="scion-as111"
+DAEMON_ADDR="172.20.0.22:30255"
+LOCAL_ADDR="1-ff00:0:111,172.20.0.23"
+
+# Normalize destination
+case "$DEST_AS" in
+    "111") DEST_AS="1-ff00:0:111" ;;
+    "211") DEST_AS="2-ff00:0:211" ;;
+    "110") DEST_AS="1-ff00:0:110" ;;
+    "210") DEST_AS="2-ff00:0:210" ;;
+esac
+
+echo "╔══════════════════════════════════════════════════════════════╗"
+echo "║           SCION Ping (SCMP Echo)                             ║"
+echo "╚══════════════════════════════════════════════════════════════╝"
+echo ""
+echo "  From:   1-ff00:0:111 (host-111)"
+echo "  To:     $DEST_AS"
+echo "  Count:  $COUNT"
+if [ -n "$PATH_INDEX" ]; then
+    echo "  Path:   #$PATH_INDEX"
+fi
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+
+# Build ping command
+PING_CMD="scion ping $DEST_AS -c $COUNT"
+if [ -n "$PATH_INDEX" ]; then
+    PING_CMD="$PING_CMD --interactive --path-index $PATH_INDEX"
+fi
+
+# Execute ping
+docker exec -e SCION_DAEMON_ADDRESS="$DAEMON_ADDR" "$HOST_CONTAINER" \
+    $PING_CMD 2>/dev/null || {
+    echo ""
+    echo "⚠️  Ping failed. Possible causes:"
+    echo "   1. Network is still converging (wait 10-20 seconds)"
+    echo "   2. No path available to destination"
+    echo "   3. Control service not ready"
+    echo ""
+    echo "   Try: make paths  (to check path availability)"
+}
+
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "💡 SCION Ping uses SCMP (SCION Control Message Protocol)"
+echo "   Similar to ICMP, but path-aware. The packet carries its"
+echo "   complete forwarding path in the header."
