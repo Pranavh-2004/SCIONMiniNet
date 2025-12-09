@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCION Network Visualizer</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🌐 SCION Network Visualizer</h1>
+            <p class="subtitle">Interactive learning tool for SCION architecture</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Left Panel: Network Topology -->
+            <section class="topology-panel">
+                <h2>Network Topology</h2>
+                <div class="topology-container">
+                    <svg id="network-svg" viewBox="0 0 600 400">
+                        <!-- ISD Labels -->
+                        <text x="150" y="30" class="isd-label">ISD 1 (Academic)</text>
+                        <text x="450" y="30" class="isd-label">ISD 2 (Commercial)</text>
+                        
+                        <!-- ISD Boundaries -->
+                        <rect x="50" y="40" width="200" height="320" class="isd-boundary" rx="10"/>
+                        <rect x="350" y="40" width="200" height="320" class="isd-boundary" rx="10"/>
+                        
+                        <!-- Links -->
+                        <!-- Core-Core link -->
+                        <line id="link-110-210" x1="210" y1="120" x2="390" y2="120" class="link link-core"/>
+                        <text x="300" y="105" class="link-label">CORE</text>
+                        
+                        <!-- Parent-Child links -->
+                        <line id="link-110-111" x1="150" y1="160" x2="150" y2="240" class="link link-child"/>
+                        <text x="115" y="205" class="link-label">CHILD</text>
+                        
+                        <line id="link-210-211" x1="450" y1="160" x2="450" y2="240" class="link link-child"/>
+                        <text x="460" y="205" class="link-label">CHILD</text>
+                        
+                        <!-- Peer link -->
+                        <line id="link-111-211" x1="210" y1="280" x2="390" y2="280" class="link link-peer"/>
+                        <text x="300" y="265" class="link-label">PEER</text>
+                        
+                        <!-- AS Nodes -->
+                        <g id="as-110" class="as-node core-as" data-as="1-ff00:0:110" onclick="selectAS('110')">
+                            <circle cx="150" cy="120" r="35" class="node-circle"/>
+                            <text x="150" y="115" class="node-label">AS110</text>
+                            <text x="150" y="130" class="node-sublabel">Core</text>
+                        </g>
+                        
+                        <g id="as-111" class="as-node leaf-as" data-as="1-ff00:0:111" onclick="selectAS('111')">
+                            <circle cx="150" cy="280" r="35" class="node-circle"/>
+                            <text x="150" y="275" class="node-label">AS111</text>
+                            <text x="150" y="290" class="node-sublabel">Leaf</text>
+                        </g>
+                        
+                        <g id="as-210" class="as-node core-as" data-as="2-ff00:0:210" onclick="selectAS('210')">
+                            <circle cx="450" cy="120" r="35" class="node-circle"/>
+                            <text x="450" y="115" class="node-label">AS210</text>
+                            <text x="450" y="130" class="node-sublabel">Core</text>
+                        </g>
+                        
+                        <g id="as-211" class="as-node leaf-as" data-as="2-ff00:0:211" onclick="selectAS('211')">
+                            <circle cx="450" cy="280" r="35" class="node-circle"/>
+                            <text x="450" y="275" class="node-label">AS211</text>
+                            <text x="450" y="290" class="node-sublabel">Leaf</text>
+                        </g>
+                    </svg>
+                </div>
+                
+                <!-- Legend -->
+                <div class="legend">
+                    <div class="legend-item">
+                        <span class="legend-color core"></span> Core AS
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color leaf"></span> Leaf AS
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-line core-link"></span> Core Link
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-line peer-link"></span> Peer Link
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Panel: Control & Info -->
+            <section class="control-panel">
+                <!-- AS Details -->
+                <div class="info-card" id="as-details">
+                    <h3>📍 Select an AS</h3>
+                    <p class="hint">Click on any AS node to view details</p>
+                </div>
+                
+                <!-- Actions -->
+                <div class="action-card">
+                    <h3>🛠️ Actions</h3>
+                    <div class="action-buttons">
+                        <button onclick="checkStatus()" class="btn btn-primary">
+                            <span class="btn-icon">🔍</span> Check Status
+                        </button>
+                        <button onclick="showPaths()" class="btn btn-secondary">
+                            <span class="btn-icon">🛤️</span> Show Paths
+                        </button>
+                        <button onclick="runPing()" class="btn btn-accent">
+                            <span class="btn-icon">🏓</span> Ping Test
+                        </button>
+                        <button onclick="refreshLogs()" class="btn btn-outline">
+                            <span class="btn-icon">📜</span> View Logs
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Path Display -->
+                <div class="path-card" id="path-display" style="display: none;">
+                    <h3>🛤️ Discovered Paths</h3>
+                    <div id="path-list"></div>
+                </div>
+                
+                <!-- Output Console -->
+                <div class="console-card">
+                    <h3>📟 Output</h3>
+                    <div class="console" id="console">
+                        <div class="console-line">Ready. Select an action to begin.</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Educational Footer -->
+        <footer class="footer">
+            <div class="edu-cards">
+                <div class="edu-card" onclick="showEdu('isd')">
+                    <h4>🏢 ISD</h4>
+                    <p>Isolation Domain</p>
+                </div>
+                <div class="edu-card" onclick="showEdu('as')">
+                    <h4>🔗 AS</h4>
+                    <p>Autonomous System</p>
+                </div>
+                <div class="edu-card" onclick="showEdu('path')">
+                    <h4>🛤️ PCFS</h4>
+                    <p>Packet-Carried State</p>
+                </div>
+                <div class="edu-card" onclick="showEdu('beacon')">
+                    <h4>📡 Beaconing</h4>
+                    <p>Path Discovery</p>
+                </div>
+            </div>
+        </footer>
+
+        <!-- Educational Modal -->
+        <div class="modal" id="edu-modal">
+            <div class="modal-content">
+                <span class="close-btn" onclick="closeModal()">&times;</span>
+                <h2 id="modal-title"></h2>
+                <div id="modal-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
