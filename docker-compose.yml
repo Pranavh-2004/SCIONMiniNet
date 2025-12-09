@@ -1,0 +1,105 @@
+# SCION MiniNet - Docker Compose Configuration
+# Self-contained local SCION network with 2 ISDs and 4 ASes
+
+services:
+  # ============================================
+  # ISD 1 - Academic Network
+  # ============================================
+  
+  # AS 1-ff00:0:110 (Core AS)
+  as110:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: scion-as110
+    hostname: as110
+    command: ["/bin/bash", "-c", "/scripts/start-as.sh 110"]
+    volumes:
+      - ./gen/AS110:/etc/scion:ro
+      - ./scripts/start-as.sh:/scripts/start-as.sh:ro
+      - shared-dispatcher:/run/shm/dispatcher
+    networks:
+      scion-net:
+        ipv4_address: 172.20.0.10
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+
+  # AS 1-ff00:0:111 (Leaf AS)
+  as111:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: scion-as111
+    hostname: as111
+    command: ["/bin/bash", "-c", "/scripts/start-as.sh 111"]
+    volumes:
+      - ./gen/AS111:/etc/scion:ro
+      - ./scripts/start-as.sh:/scripts/start-as.sh:ro
+      - ./bin:/tools:ro
+      - shared-dispatcher:/run/shm/dispatcher
+    networks:
+      scion-net:
+        ipv4_address: 172.20.0.20
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+    depends_on:
+      - as110
+
+  # ============================================
+  # ISD 2 - Commercial Network
+  # ============================================
+  
+  # AS 2-ff00:0:210 (Core AS)
+  as210:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: scion-as210
+    hostname: as210
+    command: ["/bin/bash", "-c", "/scripts/start-as.sh 210"]
+    volumes:
+      - ./gen/AS210:/etc/scion:ro
+      - ./scripts/start-as.sh:/scripts/start-as.sh:ro
+      - shared-dispatcher:/run/shm/dispatcher
+    networks:
+      scion-net:
+        ipv4_address: 172.20.0.30
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+
+  # AS 2-ff00:0:211 (Leaf AS)
+  as211:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+    container_name: scion-as211
+    hostname: as211
+    command: ["/bin/bash", "-c", "/scripts/start-as.sh 211"]
+    volumes:
+      - ./gen/AS211:/etc/scion:ro
+      - ./scripts/start-as.sh:/scripts/start-as.sh:ro
+      - ./bin:/tools:ro
+      - shared-dispatcher:/run/shm/dispatcher
+    networks:
+      scion-net:
+        ipv4_address: 172.20.0.40
+    cap_add:
+      - NET_ADMIN
+    privileged: true
+    depends_on:
+      - as210
+
+networks:
+  scion-net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+
+volumes:
+  shared-dispatcher:
